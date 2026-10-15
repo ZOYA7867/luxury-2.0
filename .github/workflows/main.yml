@@ -1,4 +1,4 @@
-name: Extract Luxury 2.0 ZIP
+name: Fix Project Structure
 
 on:
   workflow_dispatch:
@@ -7,39 +7,36 @@ permissions:
   contents: write
 
 jobs:
-  extract-zip:
+  move-files:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: true
+      - uses: actions/checkout@v4
 
-      - name: Extract ZIP
+      - name: Move Project to Root
         run: |
-          ZIP_FILE=$(find . -maxdepth 1 -type f \
-            -iname "luxury 2.0.zip" -print -quit)
+          SRC="luxury 2.0/kadappa-cafe-main"
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: luxury 2.0.zip not found!"
+          if [ ! -f "$SRC/package.json" ]; then
+            echo "package.json not found!"
             exit 1
           fi
 
-          mkdir -p "luxury 2.0"
-          unzip -o "$ZIP_FILE" -d "luxury 2.0"
+          shopt -s dotglob
+          for item in "$SRC"/*; do
+            [ -e "$item" ] || continue
+            name=$(basename "$item")
 
-      - name: Commit Extracted Files
-        run: |
+            if [ -e "$name" ]; then
+              echo "Conflict: $name already exists"
+              exit 1
+            fi
+
+            mv "$item" .
+          done
+
+          git add -A
           git config user.name "github-actions[bot]"
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- "luxury 2.0"
-
-          if git diff --cached --quiet; then
-            echo "No new extracted changes to commit."
-          else
-            git commit -m "Extract Luxury 2.0 ZIP"
-            git push
-          fi
+          git commit -m "Move website project to repository root"
+          git push
